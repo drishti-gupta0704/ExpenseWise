@@ -44,6 +44,7 @@ A RESTful backend API built with Node.js, Express.js, and MongoDB to manage pers
 
 - Error Handling: Return appropriate HTTP status codes and error responses.
 
+---
 
 
 ## API Documentation
