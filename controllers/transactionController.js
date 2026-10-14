@@ -78,17 +78,169 @@ const addTransaction = async (req, res) => {
 };
 
 
+
+
+// const getTransactions = async (req, res) => {
+//     try {
+//         const transactions = await Transaction.find({
+//             user: req.userId
+//         }).sort({ date: -1 });
+
+//         res.status(200).json({
+//             count: transactions.length,
+//             transactions
+//         });
+//     }
+    
+//     catch (error) {
+//         res.status(500).json({
+//             message: "Server error"
+//         });
+//     }
+// };
+
+
 const getTransactions = async (req, res) => {
     try {
-        const transactions = await Transaction.find({
+        const {
+            type,
+            category,
+            startDate,
+            endDate,
+            sortBy = "date",
+            order = "desc"
+        } = req.query;
+
+        
+        const page = Number(req.query.page ?? 1);
+        const limit = Number(req.query.limit ?? 10);
+
+        if (
+            !Number.isInteger(page) ||
+            !Number.isInteger(limit) ||
+            page < 1 ||
+            limit < 1
+        ) {
+            return res.status(400).json({
+                message: "Page and limit must be positive integers"
+            });
+        }
+
+   
+        const safeLimit = Math.min(limit, 100);
+        const skip = (page - 1) * safeLimit;
+
+   
+        if (type && !["income", "expense"].includes(type)) {
+            return res.status(400).json({
+                message: "Type must be income or expense"
+            });
+        }
+
+        
+        if (!["date", "amount"].includes(sortBy)) {
+            return res.status(400).json({
+                message: "sortBy must be date or amount"
+            });
+        }
+
+        if (!["asc", "desc"].includes(order)) {
+            return res.status(400).json({
+                message: "order must be asc or desc"
+            });
+        }
+
+        
+        const filter = {
             user: req.userId
-        }).sort({ date: -1 });
+        };
+
+        if (type) {
+            filter.type = type;
+        }
+
+        if (category) {
+            filter.category = category;
+        }
+
+        
+        if (startDate || endDate) {
+            filter.date = {};
+
+            if (startDate) {
+                const start = new Date(startDate);
+
+                if (
+                    !/^\d{4}-\d{2}-\d{2}$/.test(startDate) ||
+                    Number.isNaN(start.getTime()) ||
+                    start.toISOString().slice(0, 10) !== startDate
+                ) {
+                    return res.status(400).json({
+                        message: "Invalid startDate. Use YYYY-MM-DD"
+                    });
+                }
+
+                filter.date.$gte = start;
+            }
+
+            if (endDate) {
+                const end = new Date(endDate);
+
+                if (
+                    !/^\d{4}-\d{2}-\d{2}$/.test(endDate) ||
+                    Number.isNaN(end.getTime()) ||
+                    end.toISOString().slice(0, 10) !== endDate
+                ) {
+                    return res.status(400).json({
+                        message: "Invalid endDate. Use YYYY-MM-DD"
+                    });
+                }
+
+        
+                end.setUTCDate(end.getUTCDate() + 1);
+                filter.date.$lt = end;
+            }
+
+            if (
+                startDate &&
+                endDate &&
+                new Date(startDate) > new Date(endDate)
+            ) {
+                return res.status(400).json({
+                    message: "startDate cannot be after endDate"
+                });
+            }
+        }
+
+      
+        const sortOrder = order === "asc" ? 1 : -1;
+        const sortOptions = {
+            [sortBy]: sortOrder
+        };
+
+        
+        if (sortBy === "date") {
+            sortOptions._id = sortOrder;
+        }
+
+     
+        const total = await Transaction.countDocuments(filter);
+
+        
+        const transactions = await Transaction.find(filter)
+            .sort(sortOptions)
+            .skip(skip)
+            .limit(safeLimit);
 
         res.status(200).json({
             count: transactions.length,
+            total,
+            page,
+            limit: safeLimit,
+            totalPages: Math.ceil(total / safeLimit),
             transactions
         });
-    }
+    } 
     
     catch (error) {
         res.status(500).json({
@@ -96,6 +248,7 @@ const getTransactions = async (req, res) => {
         });
     }
 };
+
 
 
 const getTransactionById = async (req, res) => {
