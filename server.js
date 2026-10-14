@@ -8,6 +8,8 @@ const analyticsRoutes = require("./routes/analyticsRoutes");
 
 const app = express();
 app.use(express.json());
+app.use(express.static("public"));
+
 connectDB();
 
 app.get("/", (req, res) => {
