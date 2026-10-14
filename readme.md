@@ -6,6 +6,7 @@ A RESTful backend API built with Node.js, Express.js, and MongoDB to manage pers
 
 
 # **Click to View Live project:**
+
 [https://expensewise-8njb.onrender.com](https://expensewise-8njb.onrender.com)
 
 
@@ -42,6 +43,8 @@ A RESTful backend API built with Node.js, Express.js, and MongoDB to manage pers
 - Input Validation: Validate query parameters and handle invalid requests.
 
 - Error Handling: Return appropriate HTTP status codes and error responses.
+
+
 
 ## API Documentation
 
@@ -161,4 +164,3 @@ GET /api/analytics/monthly-trend
 | Analytics | 3 |
 | **Total** | **9** |
 
-**Note:** The request bodies and query parameters shown above should match your implemented backend. Verify them against your route and controller code before publishing the documentation.
