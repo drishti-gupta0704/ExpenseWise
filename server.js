@@ -15,6 +15,15 @@ app.get("/", (req, res) => {
     });
 });
 
+// app.get("/test-route", (req, res) => {
+//     console.log("TEST ROUTE HIT");
+//     res.status(200).json({
+//         message: "Correct server reached"
+//     });
+// });
+
+
+
 app.use("/api/auth", authRoutes);
 app.use("/api/transactions", transactionRoutes);
 

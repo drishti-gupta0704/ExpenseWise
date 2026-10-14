@@ -79,28 +79,9 @@ const addTransaction = async (req, res) => {
 
 
 
-
-// const getTransactions = async (req, res) => {
-//     try {
-//         const transactions = await Transaction.find({
-//             user: req.userId
-//         }).sort({ date: -1 });
-
-//         res.status(200).json({
-//             count: transactions.length,
-//             transactions
-//         });
-//     }
-    
-//     catch (error) {
-//         res.status(500).json({
-//             message: "Server error"
-//         });
-//     }
-// };
-
-
 const getTransactions = async (req, res) => {
+
+    
     try {
         const {
             type,
@@ -111,7 +92,7 @@ const getTransactions = async (req, res) => {
             order = "desc"
         } = req.query;
 
-        
+        // Pagination
         const page = Number(req.query.page ?? 1);
         const limit = Number(req.query.limit ?? 10);
 
@@ -126,18 +107,16 @@ const getTransactions = async (req, res) => {
             });
         }
 
-   
         const safeLimit = Math.min(limit, 100);
         const skip = (page - 1) * safeLimit;
 
-   
+        // Validate filters
         if (type && !["income", "expense"].includes(type)) {
             return res.status(400).json({
                 message: "Type must be income or expense"
             });
         }
 
-        
         if (!["date", "amount"].includes(sortBy)) {
             return res.status(400).json({
                 message: "sortBy must be date or amount"
@@ -150,89 +129,75 @@ const getTransactions = async (req, res) => {
             });
         }
 
-        
-        const filter = {
-            user: req.userId
+        // Build database filter
+        const filter = { user: req.userId };
+
+        if (type) filter.type = type;
+        if (category) filter.category = category;
+
+        const isValidDate = (value) => {
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+                return false;
+            }
+
+            const date = new Date(value);
+
+            return (
+                !Number.isNaN(date.getTime()) &&
+                date.toISOString().slice(0, 10) === value
+            );
         };
 
-        if (type) {
-            filter.type = type;
+        if (startDate && !isValidDate(startDate)) {
+            return res.status(400).json({
+                message: "Invalid startDate. Use YYYY-MM-DD"
+            });
         }
 
-        if (category) {
-            filter.category = category;
+        if (endDate && !isValidDate(endDate)) {
+            return res.status(400).json({
+                message: "Invalid endDate. Use YYYY-MM-DD"
+            });
         }
 
-        
+        if (startDate && endDate && startDate > endDate) {
+            return res.status(400).json({
+                message: "startDate cannot be after endDate"
+            });
+        }
+
         if (startDate || endDate) {
             filter.date = {};
 
             if (startDate) {
-                const start = new Date(startDate);
-
-                if (
-                    !/^\d{4}-\d{2}-\d{2}$/.test(startDate) ||
-                    Number.isNaN(start.getTime()) ||
-                    start.toISOString().slice(0, 10) !== startDate
-                ) {
-                    return res.status(400).json({
-                        message: "Invalid startDate. Use YYYY-MM-DD"
-                    });
-                }
-
-                filter.date.$gte = start;
+                filter.date.$gte = new Date(startDate);
             }
 
             if (endDate) {
                 const end = new Date(endDate);
-
-                if (
-                    !/^\d{4}-\d{2}-\d{2}$/.test(endDate) ||
-                    Number.isNaN(end.getTime()) ||
-                    end.toISOString().slice(0, 10) !== endDate
-                ) {
-                    return res.status(400).json({
-                        message: "Invalid endDate. Use YYYY-MM-DD"
-                    });
-                }
-
-        
                 end.setUTCDate(end.getUTCDate() + 1);
                 filter.date.$lt = end;
             }
-
-            if (
-                startDate &&
-                endDate &&
-                new Date(startDate) > new Date(endDate)
-            ) {
-                return res.status(400).json({
-                    message: "startDate cannot be after endDate"
-                });
-            }
         }
 
-      
-        const sortOrder = order === "asc" ? 1 : -1;
-        const sortOptions = {
-            [sortBy]: sortOrder
-        };
+        // Sorting
+        const direction = order === "asc" ? 1 : -1;
+        const sortOptions = { [sortBy]: direction };
 
-        
         if (sortBy === "date") {
-            sortOptions._id = sortOrder;
+            sortOptions._id = direction;
         }
 
-     
+        // Count matching transactions
         const total = await Transaction.countDocuments(filter);
 
-        
+        // Fetch the requested page
         const transactions = await Transaction.find(filter)
             .sort(sortOptions)
             .skip(skip)
             .limit(safeLimit);
 
-        res.status(200).json({
+        return res.status(200).json({
             count: transactions.length,
             total,
             page,
@@ -240,14 +205,19 @@ const getTransactions = async (req, res) => {
             totalPages: Math.ceil(total / safeLimit),
             transactions
         });
-    } 
-    
-    catch (error) {
-        res.status(500).json({
+    } catch (error) {
+        console.error("Get transactions error:", error.message);
+
+        return res.status(500).json({
             message: "Server error"
         });
     }
 };
+
+
+
+
+
 
 
 
